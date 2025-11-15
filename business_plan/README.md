@@ -27,7 +27,7 @@ python3 business_plan/fill_business_plan.py \
 First install the PDF engine:
 
 ```bash
-sudo apt install wkhtmltopdf
+sudo apt install wkhtmltopdf git python3-pip vim python3.12-venv
 ```
 
 Then convert a filled markdown plan to PDF:

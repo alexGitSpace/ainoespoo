@@ -1,26 +1,23 @@
 import argparse
 
-import pypandoc
+from markdown import markdown
+from weasyprint import HTML
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description=(
-            "Convert a markdown file to PDF using pypandoc. "
-            "Requires wkhtmltopdf (install with: sudo apt install wkhtmltopdf)."
-        )
+        description="Convert a markdown file to PDF using markdown and WeasyPrint."
     )
     parser.add_argument("input_file", help="Path to the input markdown file.")
     parser.add_argument("output_file", help="Path to the output PDF file.")
 
     args = parser.parse_args()
 
-    pypandoc.convert_file(
-        args.input_file,
-        to="pdf",
-        outputfile=args.output_file,
-        extra_args=["--pdf-engine=wkhtmltopdf"],
-    )
+    with open(args.input_file, "r", encoding="utf-8") as f:
+        md_text = f.read()
+
+    html_text = markdown(md_text)
+    HTML(string=html_text).write_pdf(args.output_file)
 
     print(f"PDF created: {args.output_file}")
 
