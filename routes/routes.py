@@ -11,7 +11,7 @@ from services.business_plan_service import (
     calculate_points,
     get_current_tier
 )
-from services.validation_service import validate_answer
+from services.validation_service import validate_answer, is_gibberish
 from services.chat_service import get_openai_response, get_tts_audio, transcribe_audio
 from services.email_service import send_report_email
 from services.yaml_service import update_yaml_with_answer, get_yaml_path
@@ -59,6 +59,8 @@ def register_routes(app):
                 if user_message_clean.isdigit() or user_message_clean.replace(' ', '').isdigit():
                     is_nonsensical = True
                 elif len(set(user_message_clean.replace(' ', ''))) < 3 and len(user_message_clean) > 5:
+                    is_nonsensical = True
+                elif is_gibberish(user_message_clean):
                     is_nonsensical = True
             
             if is_nonsensical:
