@@ -166,6 +166,7 @@ TIERS = [
 
 def calculate_points(form_data):
     points = 0
+    
     if form_data.get('company_name'):
         points += 1
     if form_data.get('language'):
@@ -178,6 +179,15 @@ def calculate_points(form_data):
         points += 1
     if form_data.get('location'):
         points += 1
+    
+    for section in BUSINESS_PLAN_SECTIONS:
+        for question in section['core_questions']:
+            if form_data.get(question['id']):
+                points += 3
+        for question in section['optional_questions']:
+            if form_data.get(question['id']):
+                points += 5
+    
     return points
 
 
@@ -266,8 +276,8 @@ def get_step_prompt(current_step, form_data):
             
             return f"""You are a friendly business advisor assistant helping create a comprehensive business plan. {context}
 {section_info}
-Current question: {question_instruction}
-Keep responses concise (1-2 sentences) and conversational. Be encouraging and supportive."""
+Now ask them: "{question['label']}" - {question['fill']}
+Keep responses concise (1-2 sentences) and conversational. Be encouraging and supportive. Make sure to actually ask the question directly."""
         else:
             return """You are a friendly business advisor assistant. All business plan questions have been completed.
 Thank them for their thorough responses and let them know their business plan information has been collected."""
@@ -302,9 +312,16 @@ Thank them for their thorough responses and let them know their business plan in
     current_task = step_descriptions.get(current_step, "Continue the conversation naturally.")
     
     if current_step == 'location':
-        return f"""You are a friendly business form assistant helping to collect information. {context}
+        section, question, _ = get_current_business_plan_question(form_data)
+        if section and question:
+            return f"""You are a friendly business form assistant helping to collect information. {context}
 Current task: {current_task}
-After collecting the location, congratulate them on completing the initial form and introduce the business plan checklist. Explain that you'll now help them work through a comprehensive business plan with 4 sections covering vision, market, operations, and finances.
+After collecting the location, congratulate them on completing the initial form. Then immediately ask them the first business plan question: "{question['label']}". {question['fill']}
+Keep responses concise (1-2 sentences) and conversational."""
+        else:
+            return f"""You are a friendly business form assistant helping to collect information. {context}
+Current task: {current_task}
+After collecting the location, congratulate them on completing the initial form and introduce the business plan checklist.
 Keep responses concise (1-2 sentences) and conversational."""
     elif current_step == 'complete':
         if not form_data.get('email'):

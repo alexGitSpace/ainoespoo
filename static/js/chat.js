@@ -71,6 +71,7 @@ function updateProgress(completedSteps) {
 
 let currentSectionIndex = 0;
 let previousInitialFormComplete = false;
+let previousSectionCompletions = {};
 
 function renderBusinessPlanProgress(businessPlanProgress) {
     const container = document.getElementById('businessPlanProgressContainer');
@@ -251,28 +252,17 @@ function updateBusinessPlanProgress(businessPlanProgress) {
             
             if (allCompleted.includes(stepId)) {
                 step.classList.add('completed');
-            } else {
-                const allPreviousCompleted = progressSteps
-                    .slice(0, index)
-                    .every(s => allCompleted.includes(s.dataset.stepId));
-                
-                if (allPreviousCompleted && index === allCompleted.length) {
-                    step.classList.add('active');
-                }
             }
         });
         
-        if (allCompleted.length > 0) {
-            const firstIncompleteIndex = progressSteps.findIndex(
-                step => !allCompleted.includes(step.dataset.stepId)
-            );
-            if (firstIncompleteIndex !== -1) {
-                progressSteps[firstIncompleteIndex].classList.add('active');
-            }
-        } else {
-            if (progressSteps.length > 0) {
-                progressSteps[0].classList.add('active');
-            }
+        const firstIncompleteIndex = progressSteps.findIndex(
+            step => !allCompleted.includes(step.dataset.stepId)
+        );
+        
+        if (firstIncompleteIndex !== -1) {
+            progressSteps[firstIncompleteIndex].classList.add('active');
+        } else if (allCompleted.length === 0 && progressSteps.length > 0) {
+            progressSteps[0].classList.add('active');
         }
     });
     
@@ -564,13 +554,27 @@ async function sendMessage() {
                     const isNowComplete = data.initial_form_complete;
                     const wasJustCompleted = isNowComplete && !previousInitialFormComplete;
                     
-                    renderBusinessPlanProgress(data.business_plan_progress);
+                    const newProgress = data.business_plan_progress || [];
                     
                     if (wasJustCompleted && currentSectionIndex === 0) {
                         currentSectionIndex = 1;
-                        showSection(1);
-                        updateNavButtons();
+                    } else {
+                        newProgress.forEach((sectionProgress, index) => {
+                            const sectionId = sectionProgress.section_id;
+                            const isComplete = sectionProgress.core_completed.length === sectionProgress.core_total &&
+                                sectionProgress.optional_completed.length === sectionProgress.optional_total;
+                            
+                            const wasComplete = previousSectionCompletions[sectionId] || false;
+                            
+                            if (!wasComplete && isComplete && index === currentSectionIndex && index < newProgress.length - 1) {
+                                currentSectionIndex = index + 1;
+                            }
+                            
+                            previousSectionCompletions[sectionId] = isComplete;
+                        });
                     }
+                    
+                    renderBusinessPlanProgress(data.business_plan_progress);
                     
                     previousInitialFormComplete = isNowComplete;
                 }
