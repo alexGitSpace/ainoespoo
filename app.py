@@ -229,14 +229,16 @@ def chat():
     elif current_step == 'location' and len(user_message.strip()) > 2:
         form_data['location'] = user_message
     
-    if all_steps_completed and not form_data.get('email'):
+    if not form_data.get('email'):
         import re
         email_pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
         email_match = re.search(email_pattern, user_message)
         if email_match:
             form_data['email'] = email_match.group()
         elif '@' in user_message and len(user_message.strip()) > 5:
-            form_data['email'] = user_message.strip()
+            potential_email = user_message.strip()
+            if '.' in potential_email.split('@')[1] if '@' in potential_email else False:
+                form_data['email'] = potential_email
     
     if current_step is None:
         current_step = 'complete'
@@ -411,6 +413,34 @@ def send_report_email(form_data):
     except Exception as e:
         print(f"Error sending email: {str(e)}")
         raise
+
+
+@app.route('/api/send-report', methods=['POST'])
+def send_report_manual():
+    data = request.json
+    email = data.get('email', '').strip() if data else ''
+    
+    if not email:
+        if form_data.get('email'):
+            email = form_data['email']
+        else:
+            return jsonify({'error': 'Email address is required. Please provide your email first.'}), 400
+    
+    import re
+    email_pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
+    if not re.match(email_pattern, email):
+        return jsonify({'error': 'Invalid email address format.'}), 400
+    
+    report_data = form_data.copy()
+    report_data['email'] = email
+    
+    try:
+        send_report_email(report_data)
+        if not form_data.get('email'):
+            form_data['email'] = email
+        return jsonify({'success': True, 'message': 'Report sent successfully!'})
+    except Exception as e:
+        return jsonify({'error': f'Failed to send report: {str(e)}'}), 500
 
 
 @app.route('/api/reset', methods=['POST'])

@@ -90,6 +90,78 @@ function updateTiersAndPoints(points, currentTierId, tiers) {
     });
 }
 
+function validateEmail(email) {
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailPattern.test(email);
+}
+
+function updateSendReportButton() {
+    const sendReportButton = document.getElementById('sendReportButton');
+    const emailInput = document.getElementById('reportEmailInput');
+    
+    if (sendReportButton && emailInput) {
+        const email = emailInput.value.trim();
+        const isValidEmail = validateEmail(email);
+        
+        if (isValidEmail) {
+            sendReportButton.disabled = false;
+            sendReportButton.title = 'Send current report to ' + email;
+        } else {
+            sendReportButton.disabled = true;
+            sendReportButton.title = 'Please enter a valid email address';
+        }
+    }
+}
+
+async function sendReportManually() {
+    const sendReportButton = document.getElementById('sendReportButton');
+    const emailInput = document.getElementById('reportEmailInput');
+    
+    if (!sendReportButton || !emailInput || sendReportButton.disabled) {
+        return;
+    }
+    
+    const email = emailInput.value.trim();
+    if (!validateEmail(email)) {
+        addMessage('Please enter a valid email address.', false);
+        return;
+    }
+    
+    sendReportButton.disabled = true;
+    const originalText = sendReportButton.querySelector('span').textContent;
+    sendReportButton.querySelector('span').textContent = 'Sending...';
+    
+    try {
+        const response = await fetch('/api/send-report', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ email: email }),
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            addMessage('✓ Report has been sent to ' + email + '!', false);
+            sendReportButton.querySelector('span').textContent = 'Report Sent!';
+            setTimeout(() => {
+                sendReportButton.querySelector('span').textContent = originalText;
+                updateSendReportButton();
+            }, 2000);
+        } else {
+            addMessage('Sorry, there was an error sending the report: ' + (data.error || 'Unknown error'), false);
+            sendReportButton.querySelector('span').textContent = originalText;
+            updateSendReportButton();
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        addMessage('Sorry, there was an error connecting to the server.', false);
+        sendReportButton.querySelector('span').textContent = originalText;
+        updateSendReportButton();
+    }
+}
+
 async function ensureStream() {
     if (mediaStream) return mediaStream;
     try {
@@ -273,6 +345,14 @@ async function sendMessage() {
                 updateProgress(data.completed_steps);
                 updateTiersAndPoints(data.points, data.current_tier, data.tiers);
                 
+                if (data.form_data && data.form_data.email) {
+                    const emailInput = document.getElementById('reportEmailInput');
+                    if (emailInput && !emailInput.value.trim()) {
+                        emailInput.value = data.form_data.email;
+                    }
+                }
+                updateSendReportButton();
+                
                 if (data.report_sent) {
                     setTimeout(() => {
                         addMessage('✓ Report has been sent to your email address!', false);
@@ -385,4 +465,23 @@ updateTiersAndPoints(0, 'beginner', [
     {id: 'motivated_entrepreneur', points_required: 3},
     {id: 'experienced_businessman', points_required: 6}
 ]);
+updateSendReportButton();
+
+const sendReportButton = document.getElementById('sendReportButton');
+const emailInput = document.getElementById('reportEmailInput');
+
+if (sendReportButton) {
+    sendReportButton.addEventListener('click', sendReportManually);
+}
+
+if (emailInput) {
+    emailInput.addEventListener('input', updateSendReportButton);
+    emailInput.addEventListener('blur', updateSendReportButton);
+    emailInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter' && !sendReportButton.disabled) {
+            e.preventDefault();
+            sendReportManually();
+        }
+    });
+}
 
