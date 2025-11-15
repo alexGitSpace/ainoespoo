@@ -200,6 +200,36 @@ def chat():
     })
 
 
+@app.route('/api/tts', methods=['POST'])
+def text_to_speech():
+    data = request.json
+    text = data.get('text', '').strip()
+    
+    if not text:
+        return jsonify({'error': 'Text is required'}), 400
+    
+    try:
+        audio_response = client.audio.speech.create(
+            model="tts-1",
+            voice="alloy",
+            input=text
+        )
+        
+        import base64
+        audio_data = audio_response.read()
+        audio_base64 = base64.b64encode(audio_data).decode('utf-8')
+        
+        return jsonify({
+            'audio': audio_base64,
+            'format': 'mp3'
+        })
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"TTS error: {error_details}")
+        return jsonify({'error': f'TTS failed: {str(e)}'}), 500
+
+
 @app.route('/api/transcribe', methods=['POST'])
 def transcribe():
     if 'audio' not in request.files:

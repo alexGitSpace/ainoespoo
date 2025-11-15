@@ -30,6 +30,8 @@ body {
     background-color: #fafafa;
     border-left: 1px solid #e0e0e0;
     overflow-y: auto;
+    display: flex;
+    flex-direction: column;
 }
 
 .chat-container {
@@ -210,6 +212,43 @@ body {
 
 .mic-button.recording:hover {
     background-color: #c82333;
+}
+
+.audio-toggle-button {
+    width: 40px;
+    height: 40px;
+    border: none;
+    background-color: #6c757d;
+    color: #ffffff;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s, transform 0.1s;
+    flex-shrink: 0;
+    touch-action: manipulation;
+}
+
+.audio-toggle-button:hover:not(:disabled) {
+    background-color: #5a6268;
+}
+
+.audio-toggle-button:active:not(:disabled) {
+    transform: scale(0.95);
+}
+
+.audio-toggle-button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+.audio-toggle-button.active {
+    background-color: #007bff;
+}
+
+.audio-toggle-button.active:hover {
+    background-color: #0056b3;
 }
 
 @keyframes pulse {

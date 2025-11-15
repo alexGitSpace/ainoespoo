@@ -3,6 +3,9 @@ const chatForm = document.getElementById('chatForm');
 const messageInput = document.getElementById('messageInput');
 const sendButton = document.getElementById('sendButton');
 const micButton = document.getElementById('micButton');
+const audioToggleButton = document.getElementById('audioToggleButton');
+
+let audioOutputEnabled = true;
 
 let recordingChunks = [];
 let mediaRecorder = null;
@@ -181,6 +184,46 @@ function setupPressAndHold() {
     micButton.addEventListener('pointerdown', start);
 }
 
+function base64ToBlob(base64, mimeType) {
+    const byteCharacters = atob(base64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    return new Blob([byteArray], { type: mimeType });
+}
+
+async function playAudioFromTTS(text) {
+    try {
+        const response = await fetch('/api/tts', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ text: text }),
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.audio) {
+            const audioBlob = base64ToBlob(data.audio, `audio/${data.format}`);
+            const audioUrl = URL.createObjectURL(audioBlob);
+            const audio = new Audio(audioUrl);
+            
+            audio.play().catch(error => {
+                console.error('Error playing audio:', error);
+            });
+            
+            audio.onended = () => {
+                URL.revokeObjectURL(audioUrl);
+            };
+        }
+    } catch (error) {
+        console.error('TTS error:', error);
+    }
+}
+
 async function sendMessage() {
     const message = messageInput.value.trim();
     
@@ -207,6 +250,10 @@ async function sendMessage() {
             setTimeout(() => {
                 addMessage(data.response, false);
                 updateProgress(data.completed_steps);
+                
+                if (audioOutputEnabled) {
+                    playAudioFromTTS(data.response);
+                }
             }, 500);
         } else {
             addMessage('Sorry, there was an error processing your message.', false);
@@ -233,5 +280,20 @@ messageInput.addEventListener('keypress', (e) => {
 });
 
 setupPressAndHold();
+
+audioToggleButton.addEventListener('click', () => {
+    audioOutputEnabled = !audioOutputEnabled;
+    if (audioOutputEnabled) {
+        audioToggleButton.classList.add('active');
+        audioToggleButton.title = 'Audio output enabled - Click to disable';
+    } else {
+        audioToggleButton.classList.remove('active');
+        audioToggleButton.title = 'Audio output disabled - Click to enable';
+    }
+});
+
+audioToggleButton.classList.add('active');
+audioToggleButton.title = 'Audio output enabled - Click to disable';
+
 updateProgress([]);
 
