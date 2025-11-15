@@ -3,7 +3,8 @@ import argparse
 import os
 
 def main():
-    parser = argparse.ArgumentParser(description="Transcribe an audio file using OpenAI Whisper and save to a .txt file.")
+    parser = argparse.ArgumentParser(description="Transcribe an audio file using OpenAI Whisper and save to a .txt "
+                                                 "file.")
     parser.add_argument("audio_file_path", help="Path to your audio file (e.g., output.wav)")
     args = parser.parse_args()
 

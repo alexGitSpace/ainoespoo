@@ -2,6 +2,7 @@ import openai
 import argparse
 import os
 
+
 def main():
     parser = argparse.ArgumentParser(description="Convert text file to speech and save as .webm file.")
     parser.add_argument("text_file", help="Path to the input text file")
@@ -25,6 +26,7 @@ def main():
     with open(output_audio_path, "wb") as f:
         f.write(audio_response.read())
     print(f"TTS audio saved to {output_audio_path}")
+
 
 if __name__ == "__main__":
     main()

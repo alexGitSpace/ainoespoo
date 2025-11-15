@@ -2,6 +2,12 @@ const chatMessages = document.getElementById('chatMessages');
 const chatForm = document.getElementById('chatForm');
 const messageInput = document.getElementById('messageInput');
 const sendButton = document.getElementById('sendButton');
+const micButton = document.getElementById('micButton');
+
+let recordingChunks = [];
+let mediaRecorder = null;
+let mediaStream = null;
+let isRecording = false;
 
 function addMessage(content, isUser) {
     const messageDiv = document.createElement('div');
@@ -27,7 +33,7 @@ function addMessage(content, isUser) {
 }
 
 function updateProgress(completedSteps) {
-    const progressSteps = document.querySelectorAll('.progress-step');
+    const progressSteps = Array.from(document.querySelectorAll('.progress-step'));
     
     progressSteps.forEach((step, index) => {
         const stepId = step.dataset.stepId;
@@ -58,6 +64,121 @@ function updateProgress(completedSteps) {
             progressSteps[0].classList.add('active');
         }
     }
+}
+
+async function ensureStream() {
+    if (mediaStream) return mediaStream;
+    try {
+        mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        return mediaStream;
+    } catch (error) {
+        console.error('Error accessing microphone:', error);
+        addMessage('Microphone access denied. Please allow microphone access to use voice input.', false);
+        throw error;
+    }
+}
+
+function getSupportedMimeType() {
+    const candidates = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/ogg;codecs=opus',
+        'audio/ogg'
+    ];
+    for (const type of candidates) {
+        if (MediaRecorder.isTypeSupported(type)) return type;
+    }
+    return '';
+}
+
+function startRecording() {
+    if (isRecording) return;
+    recordingChunks = [];
+    const mimeType = getSupportedMimeType();
+    mediaRecorder = new MediaRecorder(mediaStream, mimeType ? { mimeType } : undefined);
+    
+    mediaRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+            recordingChunks.push(e.data);
+        }
+    };
+    
+    mediaRecorder.onstop = async () => {
+        if (!recordingChunks.length) return;
+        
+        const type = mediaRecorder.mimeType || 'audio/webm';
+        const blob = new Blob(recordingChunks, { type });
+        
+        await transcribeAndSend(blob);
+    };
+    
+    mediaRecorder.start();
+    isRecording = true;
+    micButton.classList.add('recording');
+}
+
+function stopRecording() {
+    if (!isRecording) return;
+    try {
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop();
+        }
+    } catch (error) {
+        console.error('Error stopping recording:', error);
+    }
+    isRecording = false;
+    micButton.classList.remove('recording');
+}
+
+async function transcribeAndSend(audioBlob) {
+    micButton.disabled = true;
+    const formData = new FormData();
+    formData.append('audio', audioBlob, 'recording.webm');
+    
+    try {
+        const response = await fetch('/api/transcribe', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.text) {
+            messageInput.value = data.text.trim();
+            await sendMessage();
+        } else {
+            addMessage('Sorry, there was an error transcribing your audio.', false);
+        }
+    } catch (error) {
+        console.error('Transcription error:', error);
+        addMessage('Sorry, there was an error processing your audio.', false);
+    } finally {
+        micButton.disabled = false;
+    }
+}
+
+function setupPressAndHold() {
+    const start = async (e) => {
+        e.preventDefault();
+        try {
+            await ensureStream();
+            startRecording();
+            window.addEventListener('pointerup', onPointerUpOnce, { once: true });
+            window.addEventListener('pointercancel', onPointerUpOnce, { once: true });
+            window.addEventListener('blur', onPointerUpOnce, { once: true });
+        } catch (err) {
+            micButton.classList.remove('recording');
+            console.error('Error starting recording:', err);
+        }
+    };
+    
+    const end = () => {
+        stopRecording();
+    };
+    
+    const onPointerUpOnce = () => end();
+    
+    micButton.addEventListener('pointerdown', start);
 }
 
 async function sendMessage() {
@@ -111,5 +232,6 @@ messageInput.addEventListener('keypress', (e) => {
     }
 });
 
+setupPressAndHold();
 updateProgress([]);
 

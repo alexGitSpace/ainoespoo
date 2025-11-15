@@ -16,6 +16,7 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 
 app = Flask(__name__)
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 
 FORM_STEPS = [
     {'id': 'company_name', 'label': 'Company Name', 'completed': False},
@@ -78,11 +79,13 @@ Keep responses concise and conversational."""
                     next_steps.append(step_descriptions[FORM_STEPS[idx + 1]['id']])
                 break
         
-        next_hint = f" After collecting this information, you'll ask about: {next_steps[0] if next_steps else 'completion'}." if next_steps else ""
+        next_hint = (f" After collecting this information, you'll ask about:"
+                     f" {next_steps[0] if next_steps else 'completion'}.") if next_steps else ""
         
         return f"""You are a friendly business form assistant helping to collect information. {context}
 Current task: {current_task}{next_hint}
-Keep responses concise (1-2 sentences) and conversational. Acknowledge their input and naturally move to the next question."""
+Keep responses concise (1-2 sentences) and conversational. 
+Acknowledge their input and naturally move to the next question."""
 
 
 def get_openai_response(user_message, current_step):
@@ -195,6 +198,35 @@ def chat():
         'completed_steps': completed_steps,
         'form_data': form_data.copy()
     })
+
+
+@app.route('/api/transcribe', methods=['POST'])
+def transcribe():
+    if 'audio' not in request.files:
+        return jsonify({'error': 'No audio file provided'}), 400
+    
+    audio_file = request.files['audio']
+    if audio_file.filename == '':
+        return jsonify({'error': 'No audio file selected'}), 400
+    
+    try:
+        audio_file.seek(0)
+        file_content = audio_file.read()
+        audio_file.seek(0)
+        
+        filename = audio_file.filename or 'audio.webm'
+        content_type = audio_file.content_type or 'audio/webm'
+        
+        transcription = client.audio.transcriptions.create(
+            model="whisper-1",
+            file=(filename, file_content, content_type)
+        )
+        return jsonify({'text': transcription.text})
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"Transcription error: {error_details}")
+        return jsonify({'error': f'Transcription failed: {str(e)}'}), 500
 
 
 @app.route('/api/reset', methods=['POST'])
