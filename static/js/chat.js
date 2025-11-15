@@ -36,7 +36,7 @@ function addMessage(content, isUser) {
 }
 
 function updateProgress(completedSteps) {
-    const progressSteps = Array.from(document.querySelectorAll('.progress-step'));
+    const progressSteps = Array.from(document.querySelectorAll('#progressSteps .progress-step'));
     
     progressSteps.forEach((step, index) => {
         const stepId = step.dataset.stepId;
@@ -67,6 +67,242 @@ function updateProgress(completedSteps) {
             progressSteps[0].classList.add('active');
         }
     }
+}
+
+let currentSectionIndex = 0;
+
+function renderBusinessPlanProgress(businessPlanProgress) {
+    const container = document.getElementById('businessPlanProgressContainer');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    if (!businessPlanProgress || businessPlanProgress.length === 0) {
+        return;
+    }
+    
+    const navContainer = document.createElement('div');
+    navContainer.className = 'section-nav-container';
+    
+    const navButtons = document.createElement('div');
+    navButtons.className = 'section-nav-buttons';
+    
+    businessPlanProgress.forEach((sectionProgress, index) => {
+        const button = document.createElement('button');
+        button.className = 'section-nav-button';
+        button.textContent = index + 1;
+        button.setAttribute('data-section-index', index);
+        button.setAttribute('title', sectionProgress.title);
+        
+        if (index === currentSectionIndex) {
+            button.classList.add('active');
+        }
+        
+        button.addEventListener('click', () => {
+            currentSectionIndex = index;
+            showSection(index);
+            updateNavButtons();
+        });
+        
+        navButtons.appendChild(button);
+    });
+    
+    navContainer.appendChild(navButtons);
+    container.appendChild(navContainer);
+    
+    const sectionsContainer = document.createElement('div');
+    sectionsContainer.className = 'sections-container';
+    
+    businessPlanProgress.forEach((sectionProgress, index) => {
+        const sectionDiv = document.createElement('div');
+        sectionDiv.className = 'progress-container business-plan-section';
+        sectionDiv.setAttribute('data-section-index', index);
+        if (index !== currentSectionIndex) {
+            sectionDiv.style.display = 'none';
+        }
+        
+        const titleDiv = document.createElement('h2');
+        titleDiv.textContent = sectionProgress.title;
+        titleDiv.style.fontSize = '16px';
+        titleDiv.style.marginBottom = '8px';
+        
+        const descDiv = document.createElement('div');
+        descDiv.className = 'section-description';
+        descDiv.textContent = sectionProgress.description;
+        descDiv.style.fontSize = '12px';
+        descDiv.style.color = 'var(--text-secondary)';
+        descDiv.style.marginBottom = '12px';
+        
+        const progressBarDiv = document.createElement('div');
+        progressBarDiv.className = 'progress-bar-container';
+        
+        const stepsDiv = document.createElement('div');
+        stepsDiv.className = 'progress-steps';
+        stepsDiv.setAttribute('data-section-id', sectionProgress.section_id);
+        
+        const allQuestions = [];
+        if (sectionProgress.section_id === 'section_0') {
+            allQuestions.push(
+                {id: 'company_name', label: 'Company Name', type: 'core'},
+                {id: 'language', label: 'Language', type: 'core'},
+                {id: 'sphere', label: 'Business Sphere', type: 'core'},
+                {id: 'education', label: 'Education', type: 'core'},
+                {id: 'experience', label: 'Experience', type: 'core'},
+                {id: 'location', label: 'Location', type: 'core'}
+            );
+        } else if (sectionProgress.section_id === 'section_1') {
+            allQuestions.push(
+                {id: 'business_idea', label: 'Your Business Idea', type: 'core'},
+                {id: 'vision_3_5_years', label: 'Your Vision (3–5 years)', type: 'core'},
+                {id: 'skills_passion', label: 'Your Skills & Passion', type: 'core'},
+                {id: 'industry', label: 'Industry', type: 'optional'}
+            );
+        } else if (sectionProgress.section_id === 'section_2') {
+            allQuestions.push(
+                {id: 'ideal_customer', label: 'Your Ideal Customer', type: 'core'},
+                {id: 'problem_you_solve', label: 'The Problem You Solve', type: 'core'},
+                {id: 'products_services_pricing', label: 'Your Products, Services & Pricing', type: 'core'},
+                {id: 'differentiation', label: 'What Makes You Different?', type: 'core'},
+                {id: 'customer_purchase_criteria', label: 'Customer Purchase Criteria', type: 'optional'},
+                {id: 'customer_risks', label: 'Customer Risks', type: 'optional'}
+            );
+        } else if (sectionProgress.section_id === 'section_3') {
+            allQuestions.push(
+                {id: 'launch_plan', label: 'Your Launch Plan', type: 'core'},
+                {id: 'sales_marketing_channels', label: 'Sales & Marketing Channels', type: 'core'},
+                {id: 'production_logistics', label: 'Production and logistics', type: 'optional'},
+                {id: 'delivery_operations', label: 'Delivery operations', type: 'optional'},
+                {id: 'distribution_network', label: 'Distribution network', type: 'optional'},
+                {id: 'third_parties_partners', label: 'Other third parties', type: 'optional'},
+                {id: 'internationalization', label: 'Internationalization plans', type: 'optional'}
+            );
+        } else if (sectionProgress.section_id === 'section_4') {
+            allQuestions.push(
+                {id: 'startup_costs', label: 'Startup Costs & Initial Financing', type: 'core'},
+                {id: 'swot_analysis', label: 'SWOT Analysis', type: 'core'},
+                {id: 'company_basics', label: 'Company Basics', type: 'core'},
+                {id: 'profitability_timeline', label: 'Profitability Timeline', type: 'optional'},
+                {id: 'operating_risks', label: 'Operating risks', type: 'optional'},
+                {id: 'intellectual_property', label: 'Intellectual Property', type: 'optional'},
+                {id: 'permits_notices', label: 'Permits and notices', type: 'optional'},
+                {id: 'insurance', label: 'Insurance', type: 'optional'},
+                {id: 'key_contracts', label: 'Key contracts', type: 'optional'}
+            );
+        }
+        
+        allQuestions.forEach((question, qIndex) => {
+            const stepDiv = document.createElement('div');
+            stepDiv.className = 'progress-step';
+            stepDiv.setAttribute('data-step-id', question.id);
+            if (question.type === 'optional') {
+                stepDiv.classList.add('optional');
+            }
+            
+            const indicatorDiv = document.createElement('div');
+            indicatorDiv.className = 'step-indicator';
+            
+            const circleDiv = document.createElement('div');
+            circleDiv.className = 'step-circle';
+            
+            if (qIndex < allQuestions.length - 1) {
+                const connectorDiv = document.createElement('div');
+                connectorDiv.className = 'step-connector';
+                indicatorDiv.appendChild(circleDiv);
+                indicatorDiv.appendChild(connectorDiv);
+            } else {
+                indicatorDiv.appendChild(circleDiv);
+            }
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'step-content';
+            
+            const labelDiv = document.createElement('div');
+            labelDiv.className = 'step-label';
+            labelDiv.textContent = question.label;
+            if (question.type === 'optional') {
+                labelDiv.textContent += ' (Optional)';
+            }
+            
+            contentDiv.appendChild(labelDiv);
+            stepDiv.appendChild(indicatorDiv);
+            stepDiv.appendChild(contentDiv);
+            stepsDiv.appendChild(stepDiv);
+        });
+        
+        progressBarDiv.appendChild(stepsDiv);
+        sectionDiv.appendChild(titleDiv);
+        sectionDiv.appendChild(descDiv);
+        sectionDiv.appendChild(progressBarDiv);
+        sectionsContainer.appendChild(sectionDiv);
+    });
+    
+    container.appendChild(sectionsContainer);
+    updateBusinessPlanProgress(businessPlanProgress);
+}
+
+function showSection(index) {
+    const sections = document.querySelectorAll('.business-plan-section');
+    sections.forEach((section, i) => {
+        if (i === index) {
+            section.style.display = 'block';
+        } else {
+            section.style.display = 'none';
+        }
+    });
+}
+
+function updateNavButtons() {
+    const buttons = document.querySelectorAll('.section-nav-button');
+    buttons.forEach((button, index) => {
+        if (index === currentSectionIndex) {
+            button.classList.add('active');
+        } else {
+            button.classList.remove('active');
+        }
+    });
+}
+
+function updateBusinessPlanProgress(businessPlanProgress) {
+    businessPlanProgress.forEach((sectionProgress) => {
+        const stepsDiv = document.querySelector(`[data-section-id="${sectionProgress.section_id}"]`);
+        if (!stepsDiv) return;
+        
+        const progressSteps = Array.from(stepsDiv.querySelectorAll('.progress-step'));
+        const allCompleted = [...sectionProgress.core_completed, ...sectionProgress.optional_completed];
+        
+        progressSteps.forEach((step, index) => {
+            const stepId = step.dataset.stepId;
+            step.classList.remove('completed', 'active');
+            
+            if (allCompleted.includes(stepId)) {
+                step.classList.add('completed');
+            } else {
+                const allPreviousCompleted = progressSteps
+                    .slice(0, index)
+                    .every(s => allCompleted.includes(s.dataset.stepId));
+                
+                if (allPreviousCompleted && index === allCompleted.length) {
+                    step.classList.add('active');
+                }
+            }
+        });
+        
+        if (allCompleted.length > 0) {
+            const firstIncompleteIndex = progressSteps.findIndex(
+                step => !allCompleted.includes(step.dataset.stepId)
+            );
+            if (firstIncompleteIndex !== -1) {
+                progressSteps[firstIncompleteIndex].classList.add('active');
+            }
+        } else {
+            if (progressSteps.length > 0) {
+                progressSteps[0].classList.add('active');
+            }
+        }
+    });
+    
+    showSection(currentSectionIndex);
+    updateNavButtons();
 }
 
 function updateTiersAndPoints(points, currentTierId, tiers) {
@@ -343,6 +579,20 @@ async function sendMessage() {
             setTimeout(() => {
                 addMessage(data.response, false);
                 updateProgress(data.completed_steps);
+                
+                if (data.business_plan_progress && data.business_plan_progress.length > 0) {
+                    const initialContainer = document.getElementById('initialProgressContainer');
+                    if (initialContainer) {
+                        initialContainer.style.display = 'none';
+                    }
+                    renderBusinessPlanProgress(data.business_plan_progress);
+                } else {
+                    const initialContainer = document.getElementById('initialProgressContainer');
+                    if (initialContainer) {
+                        initialContainer.style.display = 'block';
+                    }
+                }
+                
                 updateTiersAndPoints(data.points, data.current_tier, data.tiers);
                 
                 if (data.form_data && data.form_data.email) {
@@ -468,6 +718,60 @@ updateTiersAndPoints(0, 'beginner', [
     {id: 'master_entrepreneur', points_required: 10}
 ]);
 updateSendReportButton();
+
+const initialBusinessPlanProgress = [
+    {
+        section_id: 'section_0',
+        title: 'Section 0: Basic Information',
+        description: 'Your company and background details',
+        core_completed: [],
+        core_total: 6,
+        optional_completed: [],
+        optional_total: 0
+    },
+    {
+        section_id: 'section_1',
+        title: 'Section 1: The Big Picture',
+        description: 'Your Vision and Foundation',
+        core_completed: [],
+        core_total: 3,
+        optional_completed: [],
+        optional_total: 1
+    },
+    {
+        section_id: 'section_2',
+        title: 'Section 2: Your Market, Customers, and Offer',
+        description: 'Who you\'re serving and what you\'re selling',
+        core_completed: [],
+        core_total: 4,
+        optional_completed: [],
+        optional_total: 2
+    },
+    {
+        section_id: 'section_3',
+        title: 'Section 3: Operations and Go-to-Market',
+        description: 'How you\'ll run the business and reach customers',
+        core_completed: [],
+        core_total: 2,
+        optional_completed: [],
+        optional_total: 5
+    },
+    {
+        section_id: 'section_4',
+        title: 'Section 4: Finances, Risks, and Formalities',
+        description: 'Numbers, challenges, and legal setup',
+        core_completed: [],
+        core_total: 3,
+        optional_completed: [],
+        optional_total: 6
+    }
+];
+
+const initialContainer = document.getElementById('initialProgressContainer');
+if (initialContainer) {
+    initialContainer.style.display = 'none';
+}
+renderBusinessPlanProgress(initialBusinessPlanProgress);
 
 const sendReportButton = document.getElementById('sendReportButton');
 const emailInput = document.getElementById('reportEmailInput');
