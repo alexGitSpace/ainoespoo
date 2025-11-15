@@ -3,6 +3,7 @@ from openai import OpenAI
 import os
 import sys
 import smtplib
+import re
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime
@@ -31,70 +32,125 @@ FORM_STEPS = [
     {'id': 'location', 'label': 'Location', 'completed': False},
 ]
 
-BUSINESS_PLAN_SECTIONS = [
-    {
-        'id': 'section_1',
-        'title': 'Section 1: The Big Picture',
-        'description': 'Your Vision and Foundation',
-        'core_questions': [
-            {'id': 'business_idea', 'label': 'Your Business Idea', 'fill': 'In a few sentences: what will you sell, and who will buy it? Keep it simple and clear.'},
-            {'id': 'vision_3_5_years', 'label': 'Your Vision (3–5 years)', 'fill': 'Imagine your business in 3-5 years. What does it look like? What impact are you making? Don\'t be afraid to dream a little.'},
-            {'id': 'skills_passion', 'label': 'Your Skills & Passion', 'fill': 'What experience, skills, or passion do you have that relates to this business? Why are YOU the right person to do this?'},
-        ],
-        'optional_questions': [
-            {'id': 'industry', 'label': 'Industry', 'fill': 'Briefly describe your industry, typical price levels, and trends affecting you (e.g., seasonality, regulation, technology). Keep to 3–5 bullets.'},
-        ]
-    },
-    {
-        'id': 'section_2',
-        'title': 'Section 2: Your Market, Customers, and Offer',
-        'description': 'Who you\'re serving and what you\'re selling',
-        'core_questions': [
-            {'id': 'ideal_customer', 'label': 'Your Ideal Customer', 'fill': 'Describe 1-2 types of customers you want to serve (e.g., small cafes in Helsinki, busy parents). Are they consumers (B2C) or other businesses (B2B)?'},
-            {'id': 'problem_you_solve', 'label': 'The Problem You Solve', 'fill': 'What specific problem, need, or desire does your product/service address for your ideal customer? Why would they pay for your solution?'},
-            {'id': 'products_services_pricing', 'label': 'Your Products, Services & Pricing', 'fill': 'List your main 1-3 products or services. How will you charge for them (e.g., per hour, fixed price, subscription)? What is a rough price point and your estimated cost per unit?'},
-            {'id': 'differentiation', 'label': 'What Makes You Different?', 'fill': 'Who are your top 2-3 competitors or alternatives? What is the main reason a customer would choose you over them? (e.g., better price, higher quality, more convenient, unique expertise).'},
-        ],
-        'optional_questions': [
-            {'id': 'customer_purchase_criteria', 'label': 'Customer Purchase Criteria', 'fill': 'What 3–5 factors customers compare when choosing (e.g., price, speed, quality, location, reviews, warranty, language, payment options). Rank them by importance.'},
-            {'id': 'customer_risks', 'label': 'Customer Risks', 'fill': 'List things that might stop a customer from buying (e.g., price too high, trust, delivery delay, privacy concerns). Add how you will reduce each risk.'},
-        ]
-    },
-    {
-        'id': 'section_3',
-        'title': 'Section 3: Operations and Go-to-Market',
-        'description': 'How you\'ll run the business and reach customers',
-        'core_questions': [
-            {'id': 'launch_plan', 'label': 'Your Launch Plan', 'fill': 'What are the first few practical steps you will take to get your first customer in the first 3 months? (e.g., build a simple website, contact 10 potential clients, run a small social media ad).'},
-            {'id': 'sales_marketing_channels', 'label': 'Sales & Marketing Channels', 'fill': 'How will your first customers hear about you? Pick 1-2 channels to start with (e.g., Instagram, local networking events, Google search, word-of-mouth).'},
-        ],
-        'optional_questions': [
-            {'id': 'production_logistics', 'label': 'Production and logistics (goods)', 'fill': 'If you sell goods: where you get them, minimum order sizes, lead times, shipping methods/costs, return process, and main cost drivers.'},
-            {'id': 'delivery_operations', 'label': 'Delivery operations (services)', 'fill': 'If you sell services: how you deliver, hours of operation, tools/software used, capacity per week, service level targets, and variable costs (e.g., travel, subcontracting).'},
-            {'id': 'distribution_network', 'label': 'Distribution network', 'fill': 'List partners/channels that will sell or deliver your offer (marketplaces, resellers, distributors). Include expected share of sales and fees/commissions.'},
-            {'id': 'third_parties_partners', 'label': 'Other third parties and key partners', 'fill': 'Suppliers, subcontractors, or advisors you rely on. For each: role and key terms (price, notice period).'},
-            {'id': 'internationalization', 'label': 'Internationalization plans', 'fill': 'If you plan to sell outside your country: target countries, timeline, language/currency needs, and any rules you must follow.'},
-        ]
-    },
-    {
-        'id': 'section_4',
-        'title': 'Section 4: Finances, Risks, and Formalities',
-        'description': 'Numbers, challenges, and legal setup',
-        'core_questions': [
-            {'id': 'startup_costs', 'label': 'Startup Costs & Initial Financing', 'fill': 'What are the essential things you need to buy to get started (e.g., laptop, materials, website domain)? How much cash do you need to cover costs for the first 3 months? (Estimates are fine!)'},
-            {'id': 'swot_analysis', 'label': 'SWOT Analysis', 'fill': 'List your top 2 strengths, weaknesses, opportunities, and threats. Be honest! This is a great way to summarize your situation.'},
-            {'id': 'company_basics', 'label': 'Company Basics', 'fill': 'What is your planned company name and legal form (e.g., sole trader/toiminimi, limited company/osakeyhtiö)? Who are the owners and what are the ownership percentages?'},
-        ],
-        'optional_questions': [
-            {'id': 'profitability_timeline', 'label': 'Profitability Timeline', 'fill': 'Estimate monthly fixed costs, expected monthly sales for months 1–6, and when you break even. Include how much cash you need until break-even (runway).'},
-            {'id': 'operating_risks', 'label': 'Potential risks in the operating environment', 'fill': 'Big external risks you cannot control (e.g., regulation changes, supplier issues, economic downturn). For each, note likelihood (low/med/high) and a simple backup plan.'},
-            {'id': 'intellectual_property', 'label': 'Intellectual Property', 'fill': 'Names/brands, domains, designs, or inventions. Say if registered/applied, and any next steps (e.g., file trademark).'},
-            {'id': 'permits_notices', 'label': 'Permits and notices', 'fill': 'Licenses/permits you may need (food, construction, health), who issues them, and expected timing/cost.'},
-            {'id': 'insurance', 'label': 'Insurance', 'fill': 'What insurance you plan to have (liability, professional, product, property). Add estimated annual premium or a quote if available.'},
-            {'id': 'key_contracts', 'label': 'Key contracts', 'fill': 'Any important contracts you need or already have (supplier, landlord, key customer). Note main terms (length, price, termination).'},
-        ]
-    }
-]
+
+def slugify(text):
+    text = text.lower()
+    text = re.sub(r'[^\w\s-]', '', text)
+    text = re.sub(r'[-\s]+', '_', text)
+    text = text.strip('_')
+    return text
+
+
+def load_business_plan_from_yaml():
+    yaml_path = os.path.join(os.path.dirname(__file__), 'config', 'improved_business_plan.yaml')
+    
+    with open(yaml_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+    
+    sections = []
+    current_section = None
+    current_questions = []
+    is_optional = False
+    
+    lines = content.split('\n')
+    i = 0
+    
+    while i < len(lines):
+        line = lines[i].strip()
+        
+        if line == '# ---':
+            i += 1
+            if i < len(lines):
+                next_line = lines[i].strip()
+                if next_line.startswith('# Section'):
+                    if current_section:
+                        sections.append(current_section)
+                    
+                    title_match = re.search(r'Section (\d+):\s*(.+)', next_line)
+                    if title_match:
+                        section_num = title_match.group(1)
+                        section_title = title_match.group(2).strip()
+                        
+                        i += 1
+                        if i < len(lines) and lines[i].strip() == '# ---':
+                            i += 1
+                        
+                        description = ""
+                        if i < len(lines):
+                            desc_line = lines[i].strip()
+                            if desc_line.startswith('#') and not desc_line.startswith('# ---'):
+                                description = desc_line.lstrip('#').strip()
+                        
+                        current_section = {
+                            'id': f'section_{section_num}',
+                            'title': f'Section {section_num}: {section_title}',
+                            'description': description,
+                            'core_questions': [],
+                            'optional_questions': []
+                        }
+                        current_questions = current_section['core_questions']
+                        is_optional = False
+        
+        elif line == '# --- Core Questions ---':
+            current_questions = current_section['core_questions'] if current_section else []
+            is_optional = False
+        
+        elif line == '# --- Optional Deeper Dive ---':
+            current_questions = current_section['optional_questions'] if current_section else []
+            is_optional = True
+        
+        elif line and not line.startswith('#') and ':' in line:
+            question_match = re.match(r'"([^"]+)":', line)
+            if question_match:
+                question_label = question_match.group(1)
+                question_id = slugify(question_label)
+                
+                i += 1
+                fill_text = ""
+                while i < len(lines):
+                    next_line = lines[i].strip()
+                    if not next_line or next_line.startswith('#'):
+                        if next_line.startswith('# ---'):
+                            i -= 1
+                            break
+                        i += 1
+                        continue
+                    
+                    if next_line.startswith('fill:'):
+                        fill_text = next_line.replace('fill:', '').strip()
+                        if fill_text.startswith('"') and fill_text.endswith('"'):
+                            fill_text = fill_text[1:-1]
+                        elif fill_text.startswith('"'):
+                            fill_text = fill_text[1:]
+                            i += 1
+                            while i < len(lines):
+                                cont_line = lines[i].strip()
+                                if cont_line.endswith('"'):
+                                    fill_text += ' ' + cont_line[:-1]
+                                    break
+                                fill_text += ' ' + cont_line
+                                i += 1
+                    elif next_line.startswith('why:') or next_line.startswith('answer:'):
+                        break
+                    i += 1
+                
+                if current_section and fill_text:
+                    question = {
+                        'id': question_id,
+                        'label': question_label,
+                        'fill': fill_text
+                    }
+                    current_questions.append(question)
+        
+        i += 1
+    
+    if current_section:
+        sections.append(current_section)
+    
+    return sections
+
+
+BUSINESS_PLAN_SECTIONS = load_business_plan_from_yaml()
 
 form_data = {}
 chat_history = []
@@ -159,7 +215,9 @@ def get_business_plan_progress(form_data):
         'core_completed': [],
         'core_total': len(FORM_STEPS),
         'optional_completed': [],
-        'optional_total': 0
+        'optional_total': 0,
+        'core_questions': [],
+        'optional_questions': []
     }
     for step in FORM_STEPS:
         if form_data.get(step['id']):
@@ -174,7 +232,9 @@ def get_business_plan_progress(form_data):
             'core_completed': [],
             'core_total': len(section['core_questions']),
             'optional_completed': [],
-            'optional_total': len(section['optional_questions'])
+            'optional_total': len(section['optional_questions']),
+            'core_questions': section['core_questions'],
+            'optional_questions': section['optional_questions']
         }
         for question in section['core_questions']:
             if form_data.get(question['id']):
@@ -357,6 +417,15 @@ def get_openai_response(user_message, current_step):
 @app.route('/')
 def index():
     return render_template('index.html', steps=FORM_STEPS)
+
+
+@app.route('/api/business-plan-structure', methods=['GET'])
+def get_business_plan_structure():
+    empty_form_data = {}
+    business_plan_progress = get_business_plan_progress(empty_form_data)
+    return jsonify({
+        'business_plan_progress': business_plan_progress
+    })
 
 
 @app.route('/api/chat', methods=['POST'])
@@ -546,7 +615,7 @@ Email: {form_data.get('email', 'N/A')}
 
 {'=' * 50}
 
-This report was generated automatically by the Business Form Assistant.
+This report was generated automatically by Aino: Business Advisory Service 2.0.
 Thank you for providing your information!
 """
     return report
